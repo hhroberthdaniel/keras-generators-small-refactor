@@ -169,14 +169,13 @@ class SimpleModelObject(ModelObject):
         with gzip.open(encoders_dir / "encoders.pk.gz", "wb") as f:
             pickle.dump(self.encoders, f)
 
-    @classmethod
-    def from_model_dir(
-        cls,
-        hdf5_path: Path,
-        model_params_cls: Type[ModelParams],
-        device: str = "/CPU:0",
-        custom_classes: Optional[List[Any]] = None,
-    ):
+    @staticmethod
+    def build_components(
+            hdf5_path: Path,
+            model_params_cls: Type[ModelParams],
+            device: str = "/CPU:0",
+            custom_classes: Optional[List[Any]] = None,
+    ) -> Tuple[ModelParams, Model, Dict[str, List[DataEncoder]]]:
         model_dir = hdf5_path.parent
         mp = model_params_cls.from_file(model_dir / "mp.json")
         encoders_dir = model_dir / "encoders"
@@ -187,4 +186,15 @@ class SimpleModelObject(ModelObject):
             custom_object_classes = [model_params_cls] + (custom_classes or [])
             custom_objects = {cls.__name__: cls for cls in custom_object_classes}
             model = tf.keras.models.load_model(hdf5_path, custom_objects=custom_objects)
+        return mp, model, encoders
+
+    @classmethod
+    def from_model_dir(
+        cls,
+        hdf5_path: Path,
+        model_params_cls: Type[ModelParams],
+        device: str = "/CPU:0",
+        custom_classes: Optional[List[Any]] = None,
+    ):
+        mp, model, encoders = cls.build_components(hdf5_path, model_params_cls, device, custom_classes)
         return cls(mp=mp, model=model, encoders=encoders)
